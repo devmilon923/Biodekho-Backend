@@ -274,17 +274,21 @@ async function run() {
 
     // a new contactRequests
     app.get("/user/contactRequest", async (req, res) => {
-      const contactRequests = await contactRequestsCollection.find().toArray();
+      const contactRequests = await contactRequestsCollection
+        .find({})
+        .toArray();
       return res.status(200).send(contactRequests);
     });
 
     app.get("/users/contactRequests/:email", async (req, res) => {
       const email = req.params.email;
-
       const contactRequests = await contactRequestsCollection
         .find({ email })
         .toArray();
-
+      await usersCollection.updateOne(
+        { email: email },
+        { $set: { premium: true, approvedPremium: true } }
+      );
       const enrichedRequests = await Promise.all(
         contactRequests.map(async (request) => {
           const biodata = await biodatasCollection.findOne({
