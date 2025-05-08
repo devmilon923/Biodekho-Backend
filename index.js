@@ -25,7 +25,7 @@ app.post("/jwt", (req, res) => {
     expiresIn: "30d", // Set to 30 days
   });
 
-  res.send({ success: true, token });
+  return res.send({ success: true, token });
 });
 
 // Middleware: verify token from Authorization header
@@ -101,7 +101,7 @@ async function run() {
 
     app.get("/users", async (req, res) => {
       const result = await usersCollection.find().toArray();
-      res.send(result);
+      return res.send(result);
     });
 
     app.post("/users", async (req, res) => {
@@ -120,7 +120,7 @@ async function run() {
       }
 
       const result = await usersCollection.insertOne(user);
-      res.send(result);
+      return res.send(result);
     });
 
     app.get("/recent-users", async (req, res) => {
@@ -128,10 +128,10 @@ async function run() {
         const cursor = usersCollection.find().sort({ date: -1 }).limit(4);
 
         const result = await cursor.toArray();
-        res.send(result);
+        return res.send(result);
       } catch (err) {
         console.error("Error fetching users:", err);
-        res.status(500).send({ error: "Failed to fetch the users" });
+        return res.status(500).send({ error: "Failed to fetch the users" });
       }
     });
 
@@ -148,7 +148,7 @@ async function run() {
       if (user) {
         admin = user?.role === "admin";
       }
-      res.send({ admin });
+      return res.send({ admin });
     });
 
     app.get("/users/:email", async (req, res) => {
@@ -162,7 +162,7 @@ async function run() {
         return res.status(404).send({ message: "User not found" });
       }
 
-      res.send(user);
+      return res.send(user);
     });
 
     app.patch("/users/:email", async (req, res) => {
@@ -188,7 +188,7 @@ async function run() {
         return res.status(404).send({ message: "User not found" });
       }
 
-      res.send({ success: true, message: "User updated successfully" });
+      return res.send({ success: true, message: "User updated successfully" });
     });
 
     app.post("/users/premium-request", async (req, res) => {
@@ -200,9 +200,12 @@ async function run() {
       );
 
       if (result.modifiedCount > 0) {
-        res.send({ success: true, message: "Premium request submitted." });
+        return res.send({
+          success: true,
+          message: "Premium request submitted.",
+        });
       } else {
-        res.status(404).send({
+        return res.status(404).send({
           success: false,
           message: "Biodata not found or not updated.",
         });
@@ -213,7 +216,7 @@ async function run() {
       const users = await usersCollection
         .find({ premium: true, approvedPremium: { $ne: true } })
         .toArray();
-      res.send(users);
+      return res.send(users);
     });
 
     app.patch(
@@ -229,7 +232,7 @@ async function run() {
           },
         };
         const result = await usersCollection.updateOne(filter, updatedDoc);
-        res.send(result);
+        return res.send(result);
       }
     );
 
@@ -247,7 +250,7 @@ async function run() {
         };
 
         const result = await usersCollection.updateOne(filter, updatedDoc);
-        res.send(result);
+        return res.send(result);
       }
     );
 
@@ -265,14 +268,14 @@ async function run() {
         };
 
         const result = await usersCollection.updateOne(filter, updateDoc);
-        res.send(result);
+        return res.send(result);
       }
     );
 
     // a new contactRequests
     app.get("/user/contactRequest", async (req, res) => {
       const contactRequests = await contactRequestsCollection.find().toArray();
-      res.status(200).send(contactRequests);
+      return res.status(200).send(contactRequests);
     });
 
     app.get("/users/contactRequests/:email", async (req, res) => {
@@ -291,7 +294,7 @@ async function run() {
         })
       );
 
-      res.send(enrichedRequests);
+      return res.send(enrichedRequests);
     });
 
     app.post("/users/contactRequests", async (req, res) => {
@@ -307,7 +310,7 @@ async function run() {
         mobileNumber,
         createdAt: new Date(),
       });
-      res.send({ success: true, result });
+      return res.send({ success: true, result });
     });
 
     app.patch(
@@ -323,7 +326,7 @@ async function run() {
           filter,
           updateDoc
         );
-        res.send(result);
+        return res.send(result);
       }
     );
 
@@ -337,7 +340,7 @@ async function run() {
           _id: new ObjectId(requestId),
         });
         if (result.deletedCount > 0) {
-          res.send({
+          return res.send({
             success: true,
             message: "Contact request removed successfully.",
           });
@@ -408,7 +411,7 @@ async function run() {
         .limit(limitNumber)
         .toArray();
 
-      res.send({ data: result, total });
+      return res.send({ data: result, total });
     });
 
     app.get("/biodatas/:biodataId", async (req, res) => {
@@ -425,7 +428,7 @@ async function run() {
         return res.status(404).send({ exists: false });
       }
 
-      res.send({ exists: true, biodata });
+      return res.send({ exists: true, biodata });
     });
 
     app.post("/biodatas", async (req, res) => {
@@ -458,10 +461,13 @@ async function run() {
         createdAt: new Date(),
       };
 
-      const result = await biodatasCollection.insertOne(newBiodata);
-      res.send({
+      const result = await biodatasCollection.findOneAndUpdate(
+        { contactEmail: req.decoded?.email },
+        newBiodata
+      );
+      return res.send({
         success: true,
-        message: "Biodata created successfully.",
+        message: "Biodata updated successfully.",
         insertedId: result.insertedId,
       });
     });
@@ -476,7 +482,10 @@ async function run() {
 
       if (result.matchedCount === 0)
         return res.status(404).send({ message: "Biodata not found" });
-      res.send({ success: true, message: "Biodata updated successfully" });
+      return res.send({
+        success: true,
+        message: "Biodata updated successfully",
+      });
     });
 
     app.get("/recent-biodata", async (req, res) => {
@@ -484,10 +493,10 @@ async function run() {
         const cursor = biodatasCollection.find().sort({ date: -1 }).limit(4);
 
         const result = await cursor.toArray();
-        res.send(result);
+        return res.send(result);
       } catch (err) {
         console.error("Error fetching orders:", err);
-        res.status(500).send({ error: "Failed to fetch the orders" });
+        return res.status(500).send({ error: "Failed to fetch the orders" });
       }
     });
 
@@ -495,14 +504,14 @@ async function run() {
 
     app.get("/favorites", async (req, res) => {
       const favorites = await favoritesCollection.find().toArray();
-      res.send(favorites);
+      return res.send(favorites);
     });
 
     app.get("/favorites/:userId", async (req, res) => {
       const userId = req.params.userId;
       const query = { userId };
       const favorites = await favoritesCollection.find(query).toArray();
-      res.send(favorites);
+      return res.send(favorites);
     });
 
     app.post("/favorites", verifyToken, async (req, res) => {
@@ -535,7 +544,11 @@ async function run() {
           createdAt: new Date(),
         });
 
-        res.send({ success: true, message: "Added to favorites.", result });
+        return res.send({
+          success: true,
+          message: "Added to favorites.",
+          result,
+        });
       } catch (error) {
         console.error("Error adding to favorites:", error);
         res
@@ -549,9 +562,14 @@ async function run() {
 
       const result = await favoritesCollection.deleteOne({ biodataId });
       if (result.deletedCount > 0) {
-        res.send({ success: true, message: "Biodata removed from favorites." });
+        return res.send({
+          success: true,
+          message: "Biodata removed from favorites.",
+        });
       } else {
-        res.status(404).send({ success: false, message: "Biodata not found." });
+        return res
+          .status(404)
+          .send({ success: false, message: "Biodata not found." });
       }
     });
 
@@ -566,14 +584,14 @@ async function run() {
         payment_method_types: ["card"],
       });
 
-      res.send({
+      return res.send({
         clientSecret: paymentIntent.client_secret,
       });
     });
 
     app.get("/payments", async (req, res) => {
       const payments = await paymentCollection.find().toArray();
-      res.send(payments);
+      return res.send(payments);
     });
 
     app.get("/payments/:email", async (req, res) => {
@@ -581,9 +599,11 @@ async function run() {
       try {
         const result = await paymentCollection.find(query).toArray();
 
-        res.send(result);
+        return res.send(result);
       } catch (error) {
-        res.status(500).send({ message: "Failed to fetch payment history" });
+        return res
+          .status(500)
+          .send({ message: "Failed to fetch payment history" });
       }
     });
 
@@ -599,9 +619,9 @@ async function run() {
           },
         };
 
-        res.send({ paymentResult });
+        return res.send({ paymentResult });
       } else {
-        res.send({
+        return res.send({
           paymentResult,
           deleteResult: null,
           message: "No cart items to delete.",
@@ -620,10 +640,10 @@ async function run() {
           return res.status(404).send({ error: "Payment not found" });
         }
 
-        res.send(payment);
+        return res.send(payment);
       } catch (err) {
         console.error("Error fetching payment:", err);
-        res.status(500).send({ error: "Failed to fetch payment" });
+        return res.status(500).send({ error: "Failed to fetch payment" });
       }
     });
 
@@ -635,7 +655,7 @@ async function run() {
         approvedPremium: true,
       });
 
-      res.send({
+      return res.send({
         totalUsers,
         totalBiodatas,
         totalPremiumUsers,
@@ -665,7 +685,7 @@ async function run() {
           },
         ])
         .toArray();
-      res.send({
+      return res.send({
         totalBiodatas,
         maleBiodatas,
         femaleBiodatas,
@@ -677,14 +697,14 @@ async function run() {
     // success stories
     app.get("/success-story", async (req, res) => {
       const successStories = await successCollection.find().toArray();
-      res.send(successStories);
+      return res.send(successStories);
     });
 
     app.post("/success-story", async (req, res) => {
       const successStory = req.body;
 
       const result = await successCollection.insertOne(successStory);
-      res.send(result);
+      return res.send(result);
     });
   } catch (error) {
     console.error("Error connecting to MongoDB:", error);
@@ -758,7 +778,7 @@ app.get("/", (req, res) => {
     </body>
     </html>
   `;
-  res.send(htmlContent);
+  return res.send(htmlContent);
 });
 
 // Start the Server
