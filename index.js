@@ -11,61 +11,14 @@ const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 // Middleware
 app.use(
   cors({
-    origin: ["https://matrimony-nexus.netlify.app", "http://localhost:5173"],
+    origin: "*",
+    // origin: ["https://matrimony-nexus.netlify.app", "http://localhost:5173"],
     credentials: true,
     allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
 
 app.use(express.json());
-
-app.post("/jwt", (req, res) => {
-  const user = req.body;
-  const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, {
-    expiresIn: "30d", // Set to 30 days
-  });
-
-  return res.send({ success: true, token });
-});
-
-// Middleware: verify token from Authorization header
-const verifyToken = (req, res, next) => {
-  const authHeader = req.headers.authorization;
-  if (!authHeader) {
-    return res.status(401).send({ message: "unauthorized access" });
-  }
-
-  const token = authHeader.split(" ")[1]; // Expecting "Bearer <token>"
-
-  jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decoded) => {
-    if (err) {
-      return res.status(401).send({ message: "unauthorized access" });
-    }
-    req.decoded = decoded;
-    next();
-  });
-};
-
-// POST /logout - dummy endpoint if you're only using localStorage
-app.post("/logout", (req, res) => {
-  // On frontend: just remove localStorage token
-  res.send({ success: true, message: "Logged out" });
-});
-
-// use verify admin after verifyToken
-const verifyAdmin = async (req, res, next) => {
-  const email = req.decoded.email;
-
-  const query = { email: email };
-  const user = await usersCollection.findOne(query);
-
-  const isAdmin = user?.role === "admin";
-  if (!isAdmin) {
-    console.error("Access denied. User is not an admin.");
-    return res.status(403).send({ message: "forbidden access" });
-  }
-  next();
-};
 
 // mongodb+srv://devmilon923:<db_password>@freecluster.ljgxaoy.mongodb.net/?retryWrites=true&w=majority&appName=FreeCluster
 // MongoDB Connection URI
@@ -98,7 +51,53 @@ async function run() {
     const paymentCollection = client
       .db("matrimonyNexus")
       .collection("payments");
+    app.post("/jwt", (req, res) => {
+      const user = req.body;
+      const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, {
+        expiresIn: "30d", // Set to 30 days
+      });
 
+      return res.send({ success: true, token });
+    });
+
+    // Middleware: verify token from Authorization header
+    const verifyToken = (req, res, next) => {
+      const authHeader = req.headers.authorization;
+      if (!authHeader) {
+        return res.status(401).send({ message: "unauthorized access" });
+      }
+
+      const token = authHeader.split(" ")[1]; // Expecting "Bearer <token>"
+
+      jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decoded) => {
+        if (err) {
+          return res.status(401).send({ message: "unauthorized access" });
+        }
+        req.decoded = decoded;
+        next();
+      });
+    };
+
+    // POST /logout - dummy endpoint if you're only using localStorage
+    app.post("/logout", (req, res) => {
+      // On frontend: just remove localStorage token
+      return res.send({ success: true, message: "Logged out" });
+    });
+
+    // use verify admin after verifyToken
+    const verifyAdmin = async (req, res, next) => {
+      const email = req.decoded.email;
+
+      const query = { email: email };
+      const user = await usersCollection.findOne(query);
+
+      const isAdmin = user?.role === "admin";
+      if (!isAdmin) {
+        console.error("Access denied. User is not an admin.");
+        return res.status(403).send({ message: "forbidden access" });
+      }
+      next();
+    };
     app.get("/users", async (req, res) => {
       const result = await usersCollection.find().toArray();
       return res.send(result);
@@ -151,7 +150,7 @@ async function run() {
       return res.send({ admin });
     });
 
-    app.get("/users/:email", async (req, res) => {
+    app.get("/users/:email", verifyToken, async (req, res) => {
       const email = req.params.email;
 
       const query = { email: email };
@@ -165,7 +164,7 @@ async function run() {
       return res.send(user);
     });
 
-    app.patch("/users/:email", async (req, res) => {
+    app.patch("/users/:email", verifyToken, async (req, res) => {
       const email = req.params.email;
       const updatedUser = req.body;
 
@@ -191,15 +190,15 @@ async function run() {
       return res.send({ success: true, message: "User updated successfully" });
     });
 
-    app.post("/users/premium-request", async (req, res) => {
-      const { id } = req.body;
+    app.post("/users/premium-request", verifyToken, async (req, res) => {
+      const { email } = req.body;
 
       const result = await usersCollection.updateOne(
-        { _id: new ObjectId(id) },
+        { email: email },
         { $set: { premium: true, approvedPremium: false } }
       );
-
-      if (result.modifiedCount > 0) {
+      console.log(result);
+      if (result.acknowledged) {
         return res.send({
           success: true,
           message: "Premium request submitted.",
@@ -246,6 +245,7 @@ async function run() {
         const updatedDoc = {
           $set: {
             premium: true,
+            approvedPremium: true,
           },
         };
 
@@ -390,13 +390,14 @@ async function run() {
       const convertCmToHeightString = (cm) => {
         const feet = Math.floor(cm / 30.48);
         const inches = Math.round((cm % 30.48) / 2.54);
-        return `${feet}'${inches}"`;
-      };
 
+        return `${feet}'${inches}`;
+      };
+      console.log(Number(minHeight));
       if (minHeight && maxHeight) {
         filters.height = {
-          $gte: convertCmToHeightString(minHeight),
-          $lte: convertCmToHeightString(maxHeight),
+          $gte: Number(minHeight),
+          $lte: Number(maxHeight),
         };
       }
 
@@ -438,10 +439,10 @@ async function run() {
     app.post("/biodatas", async (req, res) => {
       const { contactEmail, ...biodata } = req.body;
 
+      // Check if the provided contactEmail already exists
       const existingBiodata = await biodatasCollection.findOne({
         contactEmail,
       });
-
       if (existingBiodata) {
         return res.status(400).send({
           success: false,
@@ -450,7 +451,7 @@ async function run() {
         });
       }
 
-      // Generate a new biodataId
+      // Generate new biodataId
       const lastBiodata = await biodatasCollection
         .find()
         .sort({ biodataId: -1 })
@@ -458,21 +459,28 @@ async function run() {
         .toArray();
       const newBiodataId = (lastBiodata[0]?.biodataId || 0) + 1;
 
+      // Prepare new biodata document
       const newBiodata = {
         ...biodata,
         biodataId: newBiodataId,
-        contactEmail,
+        contactEmail, // Using contactEmail from request body
         createdAt: new Date(),
       };
 
+      // Update or insert using authenticated user's email as the filter
       const result = await biodatasCollection.findOneAndUpdate(
-        { contactEmail: req.decoded?.email },
-        newBiodata
+        { contactEmail: req.decoded?.email }, // Filter by user's email from token
+        { $set: newBiodata }, // Use $set operator
+        {
+          upsert: true, // Create document if it doesn't exist
+          returnDocument: "after", // Return the updated document
+        }
       );
+
       return res.send({
         success: true,
-        message: "Biodata updated successfully.",
-        insertedId: result.insertedId,
+        message: "Biodata processed successfully.",
+        data: result.value,
       });
     });
 
