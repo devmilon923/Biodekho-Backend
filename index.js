@@ -22,7 +22,7 @@ app.use(express.json());
 
 // mongodb+srv://devmilon923:<db_password>@freecluster.ljgxaoy.mongodb.net/?retryWrites=true&w=majority&appName=FreeCluster
 // MongoDB Connection URI
-const uri = `mongodb+srv://${process.env.MATRIMONY_IQ_USER}:${process.env.MATRIMONY_IQ_USER_PASS}@freecluster.ljgxaoy.mongodb.net/?retryWrites=true&w=majority&appName=FreeCluster`;
+const uri = `mongodb+srv://${process.env.BioDekho_IQ_USER}:${process.env.BioDekho_IQ_USER_PASS}@freecluster.ljgxaoy.mongodb.net/?retryWrites=true&w=majority&appName=FreeCluster`;
 // const uri = `mongodb+srv://${process.env.MATRIMONY_IQ_USER}:${process.env.MATRIMONY_IQ_USER_PASS}@abnahid.cot7i.mongodb.net/?retryWrites=true&w=majority&appName=abnahid`;
 // MongoDB Client
 const client = new MongoClient(uri, {
@@ -36,21 +36,15 @@ const client = new MongoClient(uri, {
 async function run() {
   try {
     // Collections
-    const biodatasCollection = client
-      .db("matrimonyNexus")
-      .collection("biodatas");
-    const usersCollection = client.db("matrimonyNexus").collection("users");
+    const biodatasCollection = client.db("BioDekho").collection("biodatas");
+    const usersCollection = client.db("BioDekho").collection("users");
     const contactRequestsCollection = client
-      .db("matrimonyNexus")
+      .db("BioDekho")
       .collection("contactRequests");
-    const favoritesCollection = client
-      .db("matrimonyNexus")
-      .collection("favorites");
-    const successCollection = client.db("matrimonyNexus").collection("success");
-    const reviewCollection = client.db("matrimonyNexus").collection("review");
-    const paymentCollection = client
-      .db("matrimonyNexus")
-      .collection("payments");
+    const favoritesCollection = client.db("BioDekho").collection("favorites");
+    const successCollection = client.db("BioDekho").collection("success");
+    const reviewCollection = client.db("BioDekho").collection("review");
+    const paymentCollection = client.db("BioDekho").collection("payments");
     app.post("/jwt", (req, res) => {
       const user = req.body;
       const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, {
@@ -98,10 +92,10 @@ async function run() {
       }
       next();
     };
-    app.get("/users", async (req, res) => {
-      const result = await usersCollection.find().toArray();
-      return res.send(result);
-    });
+    // app.get("/users", async (req, res) => {
+    //   const result = await usersCollection.find().toArray();
+    //   return res.send(result);
+    // });
 
     app.post("/users", async (req, res) => {
       const user = req.body;
@@ -150,11 +144,10 @@ async function run() {
       return res.send({ admin });
     });
 
-    app.get("/users/:email", verifyToken, async (req, res) => {
-      const email = req.params.email;
-
-      const query = { email: email };
-
+    app.get("/users", verifyToken, async (req, res) => {
+      // const email = req.params.email;
+      // console.log(email);
+      const query = { email: req.decoded.email };
       const user = await usersCollection.findOne(query);
 
       if (!user) {
@@ -164,11 +157,11 @@ async function run() {
       return res.send(user);
     });
 
-    app.patch("/users/:email", verifyToken, async (req, res) => {
+    app.patch("/users", verifyToken, async (req, res) => {
       const email = req.params.email;
       const updatedUser = req.body;
-
-      const filter = { email: email };
+      console.log(updatedUser);
+      const filter = { email: req.decoded.email };
       const updateDoc = {
         $set: {},
       };
@@ -285,10 +278,7 @@ async function run() {
       const contactRequests = await contactRequestsCollection
         .find({ email })
         .toArray();
-      await usersCollection.updateOne(
-        { email: email },
-        { $set: { premium: true, approvedPremium: true } }
-      );
+
       const enrichedRequests = await Promise.all(
         contactRequests.map(async (request) => {
           const biodata = await biodatasCollection.findOne({
@@ -301,9 +291,8 @@ async function run() {
       return res.send(enrichedRequests);
     });
 
-    app.post("/users/contactRequests", async (req, res) => {
-      const { name, mobileNumber, biodataId, email, paymentId, status } =
-        req.body;
+    app.post("/users/contactRequests", verifyToken, async (req, res) => {
+      const { name, biodataId, email, paymentId, status } = req.body;
 
       const result = await contactRequestsCollection.insertOne({
         biodataId,
@@ -311,7 +300,7 @@ async function run() {
         email,
         paymentId,
         status,
-        mobileNumber,
+        mobileNumber: req.decoded.phone,
         createdAt: new Date(),
       });
       return res.send({ success: true, result });
@@ -734,7 +723,7 @@ app.get("/", (req, res) => {
     <head>
       <meta charset="UTF-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>Matrimony Nexus Server</title>
+      <title>BioDekho Server</title>
       <style>
         body {
           margin: 0;
@@ -782,7 +771,7 @@ app.get("/", (req, res) => {
     </head>
     <body>
       <div class="container">
-        <h1>Matrimony Nexus Server</h1>
+        <h1>BioDekho Server</h1>
         <p>Your trusted server for connecting hearts!</p>
         <p>Server is running smoothly.</p>
         <a href="/biodatas">View Biodatas</a>
@@ -795,5 +784,5 @@ app.get("/", (req, res) => {
 
 // Start the Server
 app.listen(port, () => {
-  console.log(`Matrimony Nexus Server Is Running on Port: ${port}`);
+  console.log(`BioDekho Server Is Running on Port: ${port}`);
 });
