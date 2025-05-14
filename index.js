@@ -92,10 +92,10 @@ async function run() {
       }
       next();
     };
-    // app.get("/users", async (req, res) => {
-    //   const result = await usersCollection.find().toArray();
-    //   return res.send(result);
-    // });
+    app.get("/users-all", async (req, res) => {
+      const result = await usersCollection.find().toArray();
+      return res.send(result);
+    });
 
     app.post("/users", async (req, res) => {
       const user = req.body;
@@ -349,7 +349,7 @@ async function run() {
     app.get("/biodatas", async (req, res) => {
       const {
         page = 1,
-        limit = 20,
+        limit = 10,
         gender,
         minAge,
         maxAge,
@@ -363,7 +363,7 @@ async function run() {
       const limitNumber = parseInt(limit);
 
       const filters = {};
-
+      console.log(maxAge);
       if (email) {
         filters.contactEmail = email;
       }
@@ -429,16 +429,16 @@ async function run() {
       const { contactEmail, ...biodata } = req.body;
 
       // Check if the provided contactEmail already exists
-      const existingBiodata = await biodatasCollection.findOne({
-        contactEmail,
-      });
-      if (existingBiodata) {
-        return res.status(400).send({
-          success: false,
-          message:
-            "Biodata already exists for this email. Please edit instead.",
-        });
-      }
+      // const existingBiodata = await biodatasCollection.findOne({
+      //   contactEmail,
+      // });
+      // // if (existingBiodata) {
+      // //   return res.status(400).send({
+      // //     success: false,
+      // //     message:
+      // //       "Biodata already exists for this email. Please edit instead.",
+      // //   });
+      // // }
 
       // Generate new biodataId
       const lastBiodata = await biodatasCollection
@@ -458,7 +458,7 @@ async function run() {
 
       // Update or insert using authenticated user's email as the filter
       const result = await biodatasCollection.findOneAndUpdate(
-        { contactEmail: req.decoded?.email }, // Filter by user's email from token
+        { contactEmail: req?.decoded?.email }, // Filter by user's email from token
         { $set: newBiodata }, // Use $set operator
         {
           upsert: true, // Create document if it doesn't exist
